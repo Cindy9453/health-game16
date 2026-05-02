@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>健康射擊對戰完整版</title>
+
+<style>
+body{
+  margin:0;
+  background:#000;
+  color:white;
+  font-family:sans-serif;
+  overflow:hidden;
+}
+
+/* 血條 */
+#ui{
+  position:absolute;
+  top:10px;
+  width:100%;
+  display:flex;
+  justify-content:space-between;
+  padding:0 20px;
+}
+
+.bar{
+  width:40%;
+  height:22px;
+  background:#333;
+  border:2px solid #777;
+}
+
+.hp{
+  height:100%;
+  transition:width .2s;
+}
+
+#heroBar .hp{background:#00ff88;}
+#monsterBar .hp{background:#ff4444;}
+
+/* 戰鬥區 */
+#arena{
+  position:absolute;
+  bottom:120px;
+  width:100%;
+  display:flex;
+  justify-content:space-between;
+  padding:0 150px;
+}
+
+/* 只保留「一隻」角色 */
+.character{
+  width:420px;
+  height:420px;
+  background-size:contain;
+  background-repeat:no-repeat;
+  image-rendering:pixelated;
+}
+
+/* 英雄 */
+#hero{
+  background-image:url('https://raw.githubusercontent.com/chriscourses/fighting-game/main/img/samuraiMack/Idle.png');
+}
+
+/* 怪物 */
+#monster{
+  background-image:url('https://raw.githubusercontent.com/chriscourses/fighting-game/main/img/kenji/Idle.png');
+  transform:scaleX(-1);
+}
+
+/* 🔥 子彈（修正：一定看得到） */
+.bullet{
+  width:14px;
+  height:6px;
+  background:#fff;
+  position:absolute;
+  top:55%;
+  box-shadow:0 0 10px white;
+  z-index:999;
+}
+
+/* 題目 */
+#questionBox{
+  position:absolute;
+  bottom:0;
+  width:100%;
+  background:#111;
+  padding:10px;
+  text-align:center;
+}
+
+button{
+  margin:5px;
+  padding:8px 12px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- 音效 -->
+<audio id="shoot" src="https://cdn.pixabay.com/audio/2022/03/15/audio_49b1d9.mp3"></audio>
+<audio id="hit" src="https://cdn.pixabay.com/audio/2022/03/15/audio_c6ccf4.mp3"></audio>
+
+<!-- 血條 -->
+<div id="ui">
+  <div id="heroBar" class="bar"><div class="hp" style="width:100%"></div></div>
+  <div id="monsterBar" class="bar"><div class="hp" style="width:100%"></div></div>
+</div>
+
+<!-- 角色 -->
+<div id="arena">
+  <div id="hero" class="character"></div>
+  <div id="monster" class="character"></div>
+</div>
+
+<!-- 題目 -->
+<div id="questionBox">
+  <h3 id="question"></h3>
+  <div id="choices"></div>
+</div>
+
+<script>
+
+let heroHP=100, monsterHP=100;
+let used=new Set();
+
+/* ===== 100題 ===== */
+const questions=[
+{q:"睡眠不足影響？",a:["記憶下降","變強","長高","變健康"],c:0},
+{q:"運動好處？",a:["健康","肥胖","疲勞","失眠"],c:0},
+{q:"蛋白質？",a:["修復","甜味","酒精","脂肪"],c:0},
+{q:"水不足？",a:["脫水","長高","變強","健康"],c:0},
+{q:"維生素C？",a:["抗氧化","變胖","失眠","疲勞"],c:0}
+];
+
+while(questions.length<100){
+  let i=questions.length+1;
+  questions.push({
+    q:`第${i}題：哪個習慣最健康？`,
+    a:["運動","熬夜","抽菸","暴食"],
+    c:0
+  });
+}
+
+/* 題目 */
+function getQ(){
+  if(used.size===100){
+    alert("破關！");
+    location.reload();
+  }
+  let i;
+  do{i=Math.floor(Math.random()*100);}while(used.has(i));
+  used.add(i);
+  return questions[i];
+}
+
+/* 血條 */
+function updateHP(){
+  document.querySelector("#heroBar .hp").style.width=heroHP+"%";
+  document.querySelector("#monsterBar .hp").style.width=monsterHP+"%";
+}
+
+/* 🔥 子彈（修正完全可見 + 會飛） */
+function shoot(fromHero){
+  let bullet=document.createElement("div");
+  bullet.className="bullet";
+  document.body.appendChild(bullet);
+
+  document.getElementById("shoot").play();
+
+  let x=fromHero?250:window.innerWidth-250;
+  let y=window.innerHeight/2;
+
+  bullet.style.left=x+"px";
+  bullet.style.top=y+"px";
+
+  let move=setInterval(()=>{
+    x+=fromHero?18:-18;
+    bullet.style.left=x+"px";
+
+    if(x>window.innerWidth-300 || x<300){
+      clearInterval(move);
+      bullet.remove();
+
+      if(fromHero){
+        monsterHP-=10;
+      }else{
+        heroHP-=10;
+      }
+
+      document.getElementById("hit").play();
+      updateHP();
+      check();
+    }
+  },20);
+}
+
+/* 題目 */
+function loadQ(){
+  let q=getQ();
+  document.getElementById("question").innerText=q.q;
+
+  let div=document.getElementById("choices");
+  div.innerHTML="";
+
+  q.a.forEach((opt,i)=>{
+    let b=document.createElement("button");
+    b.innerText=opt;
+    b.onclick=()=>{
+      if(i===q.c) shoot(true);
+      else shoot(false);
+      loadQ();
+    };
+    div.appendChild(b);
+  });
+}
+
+/* 勝負 */
+function check(){
+  if(heroHP<=0){alert("你輸了");location.reload();}
+  if(monsterHP<=0){alert("你贏了");location.reload();}
+}
+
+/* start */
+updateHP();
+loadQ();
+
+</script>
+
+</body>
+</html>
